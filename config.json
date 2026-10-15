@@ -1,0 +1,1 @@
+{"seed":13,"device":"cpu","classes":200,"epochs":100,"warmup":10,"batch_size":32,"learning_rate":0.01,"history":5,"neighbors":5,"stable_neighbors":10,"reference_ema":0.9,"pseudo_threshold":0.7,"contrastive_temperature":0.2,"noise":"symmetric","noise_rate":0.4,"variant":"full"}
