@@ -2,47 +2,58 @@
 
 Implementation of **Temporal relational order for fine-grained recognition with noisy labels.**
 
-## Install
+## Installation
 
-Use Python 3.11 in an isolated environment, then run from the repository root:
+Requires Python >=3.10.
 
 ```bash
 python -m pip install -e .
 ```
 
-## Data
+Inspection environment: Python 3.13.5, NumPy 2.1.3 and SciPy 1.15.3. Verification covers Python syntax, JSON/TOML and README CLI options against parser definitions; training and evaluation were not run.
+
+## Data and preprocessing
 
 Use CUB-200-2011, Stanford Cars, FGVC-Aircraft, NABirds or WebFG. A CSV manifest contains `image,label,split` with zero-based labels, relative image paths and `train,val,test` roles. Optional `ambiguous` flags come from independent annotation review; `boundary` marks a held-out boundary subset, and `clean_label` preserves known labels for controlled noise. Keep images disjoint across roles.
 
-## Workflow
-
 ```bash
-python -m ordergraph prepare --input data/images.csv
-python -m ordergraph train
-python -m ordergraph run
-python -m ordergraph evaluate
-python -m ordergraph plot
+python -m ordergraph prepare --input data/images.csv --config config.json --output runs/full
 ```
 
-Main commands accept `--config config.json` and `--output runs/default`. Keep each seed/condition in its own output directory. The resolved configuration is written to `settings.json`.
+## Training and inference
 
-## Configuration
+```bash
+python -m ordergraph train --config config.json --output runs/full
+python -m ordergraph run --config config.json --output runs/full
+```
 
-`neighbors`, `history` and `reference_ema` control local order tracking. `warmup` initializes ordinary supervision before mixture fitting. `noise` accepts `symmetric`, `pair-flip` or `provided`; `noise_rate` applies to eligible training examples. `pseudo_threshold` admits stable-neighbor soft targets. `contrastive_temperature` controls cross-view discrimination. Training epochs, batch size, learning rate and seed use the defaults shown in `config.json` where applicable.
+`config.json` records the method settings and seed `13`; the resolved configuration is saved as `runs/full/settings.json`. Keep separate output directories for different seeds and variants.
+
+## Evaluation
+
+```bash
+python -m ordergraph evaluate --config config.json --output runs/full
+```
+
+## Ablations
+
+Supported controls: `full`, `ce`, `binary`, `no-temporal`, `no-order-loss`, `confidence-only`.
+
+Repeat the same data and configuration in a separate directory, for example:
+
+```bash
+python -m ordergraph prepare --input data/images.csv --config config.json --output runs/ce --variant ce
+python -m ordergraph train --config config.json --output runs/ce --variant ce
+python -m ordergraph run --config config.json --output runs/ce --variant ce
+python -m ordergraph evaluate --config config.json --output runs/ce --variant ce
+```
 
 ## Outputs
 
+All main outputs are written below `runs/full/`.
+
 `manifest.csv` preserves labels and corruption flags. `states.npz` contains state posteriors and survival from the selected checkpoint. `predictions.npz` contains clean-test probabilities. `metrics.csv` reports accuracy, ECE and, when annotations exist, noise AUROC, ambiguity retention and boundary accuracy.
 
-## Implementation and controls
-
-ImageNet ResNet-50 supplies representations. Candidate sets remain fixed inside a history block and history resets when membership changes. The standardized mixture signals are order survival, observed-label rank, loss EMA and view agreement. Clean, ambiguous and corrupted probabilities weight observed-label CE, logistic pair-order loss, and instance discrimination plus neighbor soft labels. Ambiguity flags protect controlled-noise generation but never fit the posterior.
-
-Controls: `full`, `ce`, `binary`, `no-temporal`, `no-order-loss`, `confidence-only`. Choose `--variant` and use the same preparation and fitting choices in each separate output directory.
-
 ```bash
-python -m ordergraph.compare --inputs "runs/*/metrics.csv" --reference full --metrics accuracy ece --unit seed
+python -m ordergraph plot --config config.json --output runs/full
 ```
-
-The comparison command averages repeated rows within the specified independent unit, bootstraps units and applies paired Wilcoxon/Holm comparisons per metric.
-
